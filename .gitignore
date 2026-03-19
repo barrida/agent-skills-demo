@@ -1,0 +1,41 @@
+# Gradle
+.gradle/
+build/
+gradle-wrapper.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.sw*
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.env.local
+
+# Java
+*.class
+*.jar
+*.war
+*.nar
+*.zip
+*.tar.gz
+*.rar
+*.log
+
+# Compiled output
+out/
+target/
+
+# Spring Boot
+application-local.properties
+application-dev.properties
+
+# Database
+*.db
+*.h2.db
+
