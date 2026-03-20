@@ -1,7 +1,8 @@
 package com.demo;
 
 import com.demo.model.Order;
-import com.demo.model.OrderItem;
+import com.demo.model.OrderStatus;
+import com.demo.service.InvalidOrderException;
 import com.demo.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,13 +32,13 @@ class OrderServiceTest {
 
         assertThat(order.getId()).isNotNull();
         assertThat(order.getTotal()).isEqualByComparingTo(new BigDecimal("60.00"));
-        assertThat(order.getStatus()).isEqualTo("PENDING");
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
     }
 
     @Test
     void placeOrder_shouldRejectEmptyCustomerId() {
         assertThatThrownBy(() -> orderService.placeOrder("", List.of()))
-            .isInstanceOf(RuntimeException.class);
+            .isInstanceOf(InvalidOrderException.class);
     }
 
     @Test
@@ -49,6 +50,6 @@ class OrderServiceTest {
 
         Order cancelled = orderService.cancelOrder(order.getId());
 
-        assertThat(cancelled.getStatus()).isEqualTo("CANCELLED");
+        assertThat(cancelled.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     }
 }
