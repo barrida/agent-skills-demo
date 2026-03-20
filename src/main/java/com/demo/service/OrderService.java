@@ -2,89 +2,178 @@ package com.demo.service;
 
 import com.demo.model.Order;
 import com.demo.model.OrderItem;
+import com.demo.model.OrderStatus;
 import com.demo.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class OrderService {
 
-    // field injection (should use constructor injection)
-    @org.springframework.beans.factory.annotation.Autowired
-    private OrderRepository orderRepository;
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    // God method: creates order, validates, calculates total, sends notification — all in one
+    private final OrderRepository orderRepository;
+
+    public OrderService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+
+    /**
+     * Creates and persists a new order with the provided items.
+     * Validates input, builds order items, calculates total, and saves to repository.
+     *
+     * @param customerId the customer ID
+     * @param items list of item maps containing productId, productName, quantity, and price
+     * @return the created Order entity
+     * @throws InvalidOrderException if validation fails
+     */
     public Order placeOrder(String customerId, List<Map<String, Object>> items) {
-        // validation mixed with business logic
-        if (customerId == null || customerId.isEmpty()) {
-            throw new RuntimeException("Customer ID cannot be empty"); // too generic
-        }
-        if (items == null || items.size() == 0) {  // should use isEmpty()
-            throw new RuntimeException("Order must have at least one item");
-        }
+        validatePlaceOrderRequest(customerId, items);
 
         Order order = new Order(customerId);
+        order.setStatus(OrderStatus.PENDING);
 
-        BigDecimal total = new BigDecimal("0"); // should use ZERO constant
-        for (int i = 0; i < items.size(); i++) {  // should be for-each
-            Map<String, Object> item = items.get(i);
+        addItemsToOrder(order, items);
+        BigDecimal total = calculateOrderTotal(order.getItems());
+        order.setTotal(total);
 
-            String productId = (String) item.get("productId");
-            String productName = (String) item.get("productName");
-            int qty = (Integer) item.get("quantity");
-            BigDecimal price = new BigDecimal(item.get("price").toString());
+        Order savedOrder = orderRepository.save(order);
+        log.info("Order created with ID: {}, customer: {}, total: {}", savedOrder.getId(), customerId, total);
 
-            // no null checks on map values
+        return savedOrder;
+    }
+
+    /**
+     * Validates the place order request.
+     *
+     * @param customerId the customer ID to validate
+     * @param items the items list to validate
+     * @throws InvalidOrderException if validation fails
+     */
+    private void validatePlaceOrderRequest(String customerId, List<Map<String, Object>> items) {
+        if (customerId == null || customerId.isEmpty()) {
+            throw new InvalidOrderException("Customer ID cannot be empty");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new InvalidOrderException("Order must have at least one item");
+        }
+    }
+
+    /**
+     * Adds items from the provided list to the order.
+     * Validates and converts each item map to an OrderItem entity.
+     *
+     * @param order the order to add items to
+     * @param items list of item maps
+     * @throws InvalidOrderException if item validation fails
+     */
+    private void addItemsToOrder(Order order, List<Map<String, Object>> items) {
+        for (Map<String, Object> item : items) {
+            String productId = Objects.requireNonNull(
+                    (String) item.get("productId"),
+                    "productId is required");
+            String productName = Objects.requireNonNull(
+                    (String) item.get("productName"),
+                    "productName is required");
+
+            Object qtyObj = item.get("quantity");
+            if (qtyObj == null) {
+                throw new InvalidOrderException("quantity is required");
+            }
+            int qty = (Integer) qtyObj;
+
+            Object priceObj = item.get("price");
+            if (priceObj == null) {
+                throw new InvalidOrderException("price is required");
+            }
+            BigDecimal price = new BigDecimal(priceObj.toString());
+
             OrderItem orderItem = new OrderItem(productId, productName, qty, price);
-            order.items.add(orderItem); // accessing public field directly
-
-            total = total.add(price.multiply(new BigDecimal(qty)));
+            order.getItems().add(orderItem);
         }
-
-        order.total = total;  // accessing public field directly
-        order.status = "PENDING"; // magic string
-
-        // notification logic embedded in service (should be event-driven)
-        System.out.println("Sending email to customer: " + customerId); // println in production code
-        System.out.println("Order total: " + total);
-
-        return orderRepository.save(order);
     }
 
+    /**
+     * Calculates the total price for a list of order items.
+     *
+     * @param items the order items to calculate total for
+     * @return the total price
+     */
+    private BigDecimal calculateOrderTotal(List<OrderItem> items) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (OrderItem item : items) {
+            total = total.add(item.getPrice().multiply(new BigDecimal(item.getQty())));
+        }
+        return total;
+    }
+
+
+    /**
+     * Retrieves an order by ID.
+     *
+     * @param id the order ID
+     * @return the Order entity
+     * @throws OrderNotFoundException if order does not exist
+     */
     public Order getOrder(Long id) {
-        // no proper not-found handling
-        return orderRepository.findById(id).get(); // throws NoSuchElementException if missing
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + id));
     }
 
-    public List<Order> getOrdersByCustomer(String cId) { // abbreviated param name
-        return orderRepository.findByCustomerId(cId);
+    /**
+     * Retrieves all orders for a specific customer.
+     *
+     * @param customerId the customer ID
+     * @return list of orders for the customer
+     */
+    public List<Order> getOrdersByCustomer(String customerId) {
+        return orderRepository.findByCustomerId(customerId);
     }
 
+    /**
+     * Cancels an order if it's in a cancellable state.
+     * Orders that are shipped or delivered cannot be cancelled.
+     *
+     * @param id the order ID
+     * @return the cancelled Order entity
+     * @throws OrderNotFoundException if order does not exist
+     * @throws InvalidOrderException if order cannot be cancelled
+     */
     public Order cancelOrder(Long id) {
-        Order order = orderRepository.findById(id).get();
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + id));
 
-        // business rule buried in service, not on domain object
-        if (order.status.equals("SHIPPED") || order.status.equals("DELIVERED")) {
-            throw new RuntimeException("Cannot cancel order in status: " + order.status);
+        if (!order.getStatus().isCancellable()) {
+            throw new InvalidOrderException("Cannot cancel order in status: " + order.getStatus());
         }
 
-        order.status = "CANCELLED";
+        order.setStatus(OrderStatus.CANCELLED);
         return orderRepository.save(order);
     }
 
-    // duplicate logic from placeOrder — total recalculation
+    /**
+     * Recalculates and updates the total price for an order.
+     *
+     * @param orderId the order ID
+     * @return the recalculated total
+     * @throws OrderNotFoundException if order does not exist
+     */
     public BigDecimal recalculateTotal(Long orderId) {
-        Order order = orderRepository.findById(orderId).get();
-        BigDecimal total = new BigDecimal("0");
-        for (int i = 0; i < order.items.size(); i++) {
-            total = total.add(order.items.get(i).getPrice()
-                    .multiply(new BigDecimal(order.items.get(i).getQty())));
-        }
-        order.total = total;
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
+
+        BigDecimal total = calculateOrderTotal(order.getItems());
+        order.setTotal(total);
         orderRepository.save(order);
+
+        log.info("Order {} total recalculated: {}", orderId, total);
         return total;
     }
 }

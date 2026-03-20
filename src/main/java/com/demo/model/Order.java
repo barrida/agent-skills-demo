@@ -2,48 +2,69 @@ package com.demo.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 
-// TODO: add proper validation
+/**
+ * Order entity representing a customer order with associated items.
+ * Status is managed as an enum for type safety.
+ */
 @Entity
 @Table(name = "orders")
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    public Long id;         // should be private
+    private Long id;
 
-    public String customerId;   // should be private, no validation
-    public String status;       // should be an enum
-    public BigDecimal total;    // mutable, no encapsulation
+    private String customerId;
+
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
+
+    private BigDecimal total;
 
     @Column(name = "created_at")
-    public Date createdAt;  // should use Instant or LocalDateTime
+    private Instant createdAt;
 
     @OneToMany(cascade = CascadeType.ALL)
-    public List<OrderItem> items = new ArrayList<>();  // exposed mutable list
+    private List<OrderItem> items = new ArrayList<>();
 
     // no-arg constructor for JPA
     public Order() {}
 
     public Order(String customerId) {
         this.customerId = customerId;
-        this.status = "PENDING";
-        this.createdAt = new Date();
+        this.status = OrderStatus.PENDING;
+        this.createdAt = Instant.now();
         this.total = BigDecimal.ZERO;
     }
 
-    // manual getter/setter verbosity (no Lombok used intentionally)
+    // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+
+    public OrderStatus getStatus() { return status; }
+    public void setStatus(OrderStatus status) { this.status = status; }
+
+    public void setStatus(String status) { 
+        this.status = OrderStatus.valueOf(status); 
+    }
+
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
-    public Date getCreatedAt() { return createdAt; }
-    public List<OrderItem> getItems() { return items; }  // returning mutable list
+
+    public Instant getCreatedAt() { return createdAt; }
+
+    public List<OrderItem> getItems() { return items; }
+
+    // Domain method for adding items (for encapsulation)
+    public void addItem(OrderItem item) {
+        items.add(item);
+    }
 }
