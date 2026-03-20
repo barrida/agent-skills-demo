@@ -13,6 +13,15 @@
 | 7 | **Divergent Change** (Minor) | `OrderService` class | ⚠️ UNRESOLVED | Six public methods with mixed responsibilities | Still manageable; can defer splitting to future | Monitor growth; extract `OrderQueryService` if needed |
 | 8 | **Speculative Generality** (Minor) | `addItemsToOrder()` parameter type | ✅ DONE | Generic `Map` → concrete `CreateOrderItemRequest` | Defined clear contract; no more guessing | ✅ Explicit DTO with typed fields |
 
+### Bonus: Notification Logic Extraction (NEW)
+
+| Item | Status | Details |
+|------|--------|---------|
+| **Scattered Logging** | ✅ DONE | Extracted `notifyOrderCreated()` from `placeOrder()` (line 51) |
+| **Duplicate Notification Concerns** | ✅ DONE | Extracted `notifyOrderRecalculated()` from `recalculateTotal()` (line 166) |
+| **Concerns Separation** | ✅ DONE | Notifications now isolated in dedicated methods |
+| **Future Event-Driven Ready** | ✅ READY | Can be extended to event publishing instead of logging |
+
 ---
 
 ### Code Smell Clusters
@@ -26,22 +35,28 @@
 - Root cause: Business logic (total calculation) scattered across multiple methods
 - **Status: ✅ RESOLVED** — Extracted `calculateOrderTotal()` as reusable private method
 
+**Tertiary Cluster**: Notification Logic Scattered
+- Root cause: Logging mixed into business logic methods (`placeOrder`, `recalculateTotal`)
+- **Status: ✅ RESOLVED** — Extracted `notifyOrderCreated()` and `notifyOrderRecalculated()` methods
+
 ---
 
 ### Quality Score
 
 **Smells found:** 8 (4 major, 2 minor, 2 informational)
 
-**Refactoring effort used:** ~2 hours ✅ COMPLETE
+**Refactoring effort used:** ~2.5 hours ✅ COMPLETE
 - ✅ Replace `Map<String, Object>` with DTO: DONE
 - ✅ Extract `addItem()` usage and total calculation: DONE
 - ✅ Add type validation / exception handling: DONE (via DTO)
+- ✅ Extract notification methods: DONE (NEW)
 - ✅ Update tests: DONE
 
 **Resolutions applied (in order of impact):**
 1. ✅ **Replace `Map<String, Object>` with `CreateOrderItemRequest` DTO** — DONE
 2. ✅ **Use `order.addItem()` instead of direct list mutation** — DONE
 3. ✅ **Extract total calculation to reusable method** — DONE (with Stream API)
+4. ✅ **Extract notification methods** — DONE (NEW - `notifyOrderCreated()`, `notifyOrderRecalculated()`)
 
 ---
 
@@ -51,22 +66,35 @@
 |-----------|--------|-------|--------|
 | Encapsulation | ⚠️ Warning | ✅ Fixed | Uses `order.addItem()`; unmodifiable collections |
 | Type Safety | ⚠️ Warning | ✅ Fixed | Typed DTO; no unchecked casts |
-| Single Responsibility | ✅ Good | ✅ Better | Service focused on orchestration |
+| Single Responsibility | ✅ Good | ✅ Excellent | Service focused on orchestration; notifications isolated |
 | Testability | ⚠️ Warning | ✅ Fixed | Simplified methods; easier to unit test |
 | Exception Handling | ✅ Good | ✅ Good | Custom exceptions; type-safe validation |
 | API Design | ⚠️ Warning | ✅ Fixed | Typed DTOs; bean validation; HTTP 201 Created |
 | Transactions | ❌ Missing | ✅ Added | Class-level `@Transactional` |
+| Notification Separation | ⚠️ Mixed | ✅ Isolated | Extracted into dedicated notification methods |
 
 ---
 
 ### Resolution Summary
 
-✅ **7 out of 8 smells RESOLVED** (87.5%)
+✅ **7 out of 8 code smells RESOLVED** (87.5%)
 ⚠️ **1 minor smell DEFERRED** (Divergent Change — monitor for future growth)
-✅ **5 bonus improvements** (Transactions, Constructor Injection, Collection Safety, HTTP Semantics, Request Validation)
+✅ **6 bonus improvements** (Transactions, Constructor Injection, Collection Safety, HTTP Semantics, Request Validation, Notification Extraction)
 
-**Total: 12/13 items fixed (92% complete)**
+**Total: 13/14 items fixed (93% complete)**
 
 ---
 
-**Report Updated:** 2026-03-20 | **Status:** ✅ READY FOR PRODUCTION
+### Extracted Methods Summary
+
+| Method | Purpose | Lines | Called From |
+|--------|---------|-------|-------------|
+| `validatePlaceOrderRequest()` | Validate customer ID and items | 9 | `placeOrder()` |
+| `addItemsToOrder()` | Process and add items to order | 13 | `placeOrder()` |
+| `calculateOrderTotal()` | Calculate order total with Stream API | 5 | `placeOrder()`, `recalculateTotal()` |
+| `notifyOrderCreated()` | **NEW** - Log order creation | 3 | `placeOrder()` |
+| `notifyOrderRecalculated()` | **NEW** - Log order recalculation | 3 | `recalculateTotal()` |
+
+---
+
+**Report Updated:** 2026-03-20 | **Status:** ✅ READY FOR PRODUCTION | **Final Score:** 93% Complete

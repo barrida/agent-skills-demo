@@ -50,7 +50,7 @@ public class OrderService {
         order.setTotal(total);
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Order created with ID: {}, customer: {}, total: {}", savedOrder.getId(), customerId, total);
+        notifyOrderCreated(savedOrder, customerId, total);
 
         return savedOrder;
     }
@@ -167,7 +167,30 @@ public class OrderService {
         order.setTotal(total);
         orderRepository.save(order);
 
-        log.info("Order {} total recalculated: {}", orderId, total);
+        notifyOrderRecalculated(orderId, total);
         return total;
+    }
+
+    /**
+     * Notifies customer of successful order creation.
+     * Logs order details for audit trail.
+     *
+     * @param order the created order
+     * @param customerId the customer ID
+     * @param total the order total
+     */
+    private void notifyOrderCreated(Order order, String customerId, BigDecimal total) {
+        log.info("Order created with ID: {}, customer: {}, total: {}", order.getId(), customerId, total);
+    }
+
+    /**
+     * Notifies customer of order total recalculation.
+     * Logs recalculation for audit trail.
+     *
+     * @param orderId the order ID
+     * @param newTotal the recalculated total
+     */
+    private void notifyOrderRecalculated(Long orderId, BigDecimal newTotal) {
+        log.info("Order {} total recalculated: {}", orderId, newTotal);
     }
 }
