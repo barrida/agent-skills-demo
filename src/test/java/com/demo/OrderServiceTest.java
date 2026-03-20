@@ -2,6 +2,7 @@ package com.demo;
 
 import com.demo.model.Order;
 import com.demo.model.OrderStatus;
+import com.demo.service.CreateOrderItemRequest;
 import com.demo.service.InvalidOrderException;
 import com.demo.service.OrderNotFoundException;
 import com.demo.service.OrderService;
@@ -12,7 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,9 +26,9 @@ class OrderServiceTest {
     @Test
     @DisplayName("Should calculate order total correctly with multiple items")
     void placeOrder_shouldCalculateTotalCorrectly() {
-        List<Map<String, Object>> items = List.of(
-            Map.of("productId", "P1", "productName", "Widget", "quantity", 2, "price", "15.00"),
-            Map.of("productId", "P2", "productName", "Gadget", "quantity", 1, "price", "30.00")
+        List<CreateOrderItemRequest> items = List.of(
+            new CreateOrderItemRequest("P1", "Widget", 2, new BigDecimal("15.00")),
+            new CreateOrderItemRequest("P2", "Gadget", 1, new BigDecimal("30.00"))
         );
 
         Order order = orderService.placeOrder("customer-123", items);
@@ -49,8 +49,8 @@ class OrderServiceTest {
     @Test
     @DisplayName("Should transition order to CANCELLED status when in PENDING state")
     void cancelOrder_shouldTransitionToCancelled() {
-        List<Map<String, Object>> items = List.of(
-            Map.of("productId", "P1", "productName", "Widget", "quantity", 1, "price", "10.00")
+        List<CreateOrderItemRequest> items = List.of(
+            new CreateOrderItemRequest("P1", "Widget", 1, new BigDecimal("10.00"))
         );
         Order order = orderService.placeOrder("customer-456", items);
 
@@ -62,8 +62,8 @@ class OrderServiceTest {
     @Test
     @DisplayName("Should throw exception when cancelling already shipped order")
     void cancelOrder_shouldThrowException_whenOrderAlreadyShipped() {
-        List<Map<String, Object>> items = List.of(
-            Map.of("productId", "P1", "productName", "Widget", "quantity", 1, "price", "10.00")
+        List<CreateOrderItemRequest> items = List.of(
+            new CreateOrderItemRequest("P1", "Widget", 1, new BigDecimal("10.00"))
         );
         Order order = orderService.placeOrder("customer-789", items);
 
