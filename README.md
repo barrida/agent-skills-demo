@@ -83,25 +83,66 @@ If you prefer using Claude.ai directly:
 
 ## Option C — Anthropic API / MCP Server (Advanced)
 
-For teams wanting Claude embedded in their own tooling:
+MCP (Model Context Protocol) lets Claude access external tools — like your project's
+file system — directly from Copilot Chat in IntelliJ.
 
-```bash
-# Install the Anthropic MCP server for IntelliJ (JetBrains MCP plugin)
-# Settings → Plugins → search "Model Context Protocol"
+### How it works
+
+```
+IntelliJ Copilot Chat (Claude)
+         │
+         │  MCP protocol (stdio)
+         ▼
+  @modelcontextprotocol/server-filesystem
+         │
+         ▼
+  /your/project  ← Claude can now read/list files as MCP tools
 ```
 
-Then in `~/.cursor/mcp.json` or your JetBrains MCP config:
+### 1. Locate your JetBrains Copilot MCP config
+
+The config file is **already created** by the Copilot plugin at:
+```
+~/.config/github-copilot/intellij/mcp.json
+```
+> ⚠️ Note: This is **not** `~/.cursor/mcp.json`. The JetBrains Copilot plugin
+> uses its own path and uses the key `"servers"` (not `"mcpServers"`).
+
+### 2. Add the filesystem MCP server
+
+Edit `~/.config/github-copilot/intellij/mcp.json`:
 ```json
 {
-  "mcpServers": {
-    "claude": {
+  "servers": {
+    "filesystem": {
+      "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-server-claude"],
-      "env": { "ANTHROPIC_API_KEY": "your-key-here" }
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/User/workspace/agent-skills-demo"
+      ]
     }
   }
 }
 ```
+No `ANTHROPIC_API_KEY` needed here — Copilot already authenticates with Claude via GitHub.
+
+### 3. Restart IntelliJ and verify
+
+After saving the config, restart IntelliJ. Open **Copilot Chat** and look for
+the 🔧 **Tools** button — the `filesystem` server and its tools (`read_file`,
+`list_directory`, `write_file`, etc.) should appear there.
+
+### 4. Try it in Copilot Chat
+
+```
+List the Java source files in this project using the filesystem tool, then
+review OrderService.java for code smells based on our coding conventions.
+```
+
+Claude will use the MCP `list_directory` + `read_file` tools to directly read the file
+before responding — no need to manually paste code into the chat.
 
 ---
 
